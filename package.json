@@ -1,0 +1,13 @@
+{
+  "name": "tplogtools",
+  "version": "1.0.0",
+  "description": "Removes old files from the specified paths according to the criteria of the limits.",
+  "bin": {
+    "logclean": "./logclean",
+    "stdout2log": "./stdout2log"
+  },
+  "scripts": {
+    "test" : "python3 -m unittest"
+  }
+}
+  

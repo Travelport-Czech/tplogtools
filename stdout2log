@@ -1,0 +1,92 @@
+#!/usr/bin/env python3
+
+"""Tool for store stdin to rotated file."""
+
+import os
+import sys
+import signal
+import datetime
+import logging
+import subprocess
+import shlex
+import argparse
+from tplogtools.timediff import how_many_seconds_to_time
+
+class State:
+    def __init__(self, wanted_hour, wanted_minute, max_size, backup_mask, filename, output, compressor):
+        self.in_write = False
+        self.rotation_needed = False
+        self.wanted_hour = wanted_hour
+        self.wanted_minute = wanted_minute
+        self.max_size = max_size
+        self.backup_mask = backup_mask
+        self.filename = filename
+        self.output = output
+        self.compressor = compressor
+        self.running_compressors = []
+
+def alarm_handler(state):
+    now = datetime.datetime.now()
+    signal.alarm(how_many_seconds_to_time(now=now, hour=state.wanted_hour, minute=state.wanted_minute))
+    if state.in_write:
+        state.rotation_needed = True
+    else:
+        rotate(state, now)
+
+def rotate(state, now):
+    state.output.close()
+    backup_name = now.strftime(state.backup_mask)
+    dirname = os.path.dirname(backup_name)
+    if dirname:
+        os.makedirs(dirname, exist_ok=True)
+    os.rename(state.filename, backup_name)
+    if state.compressor:
+        compressor_params = shlex.split(state.compressor)
+        compressor_params.append(backup_name)
+        state.running_compressors.append(subprocess.Popen(compressor_params))
+    state.output = open(state.filename, 'ab', 0)
+
+def chld_handler(state):
+    compressors = state.running_compressors
+    state.running_compressors = []
+    for proc in compressors:
+        if proc.poll() is None:
+            state.running_compressors.append(proc)
+        else:
+            logging.debug('Compressor terminated')
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('-t', '--time', required=True, help='Time to rotation in form HH:MM')
+    parser.add_argument('-s', '--size', help='Max size of live log in MiB')
+    parser.add_argument('-b', '--backup', required=True, help='Mask for rotated log filename')
+    parser.add_argument('-c', '--compress', help='Command for compression of rotated log')
+    parser.add_argument('filename', help='Live log filename.')
+    args = parser.parse_args()
+    wanted_hour, wanted_minute = (int(item) for item in args.time.split(':'))
+    state = State(
+            wanted_hour=wanted_hour,
+            wanted_minute=wanted_minute,
+            max_size=(int(args.size) * 1024 * 1024) if args.size else None,
+            backup_mask=args.backup,
+            filename=args.filename,
+            output=open(args.filename, 'ab', 0),
+            compressor=args.compress
+    )
+    signal.signal(signal.SIGCHLD, lambda signum, frame: chld_handler(state))
+    signal.signal(signal.SIGALRM, lambda signum, frame: alarm_handler(state))
+    signal.alarm(how_many_seconds_to_time(now=datetime.datetime.now(), hour=state.wanted_hour, minute=state.wanted_minute))
+    try:
+        while True:
+            line = sys.stdin.buffer.readline()
+            if line == b'':
+                break
+            state.in_write = True
+            state.output.write(line)
+            state.in_write = False
+            if state.rotation_needed or state.max_size is not None and state.output.tell() >= state.max_size:
+                state.rotation_needed = False
+                rotate(state, datetime.datetime.now())
+    except KeyboardInterrupt:
+        pass
+    state.output.close()

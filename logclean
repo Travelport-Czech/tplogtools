@@ -1,0 +1,176 @@
+#!/usr/bin/env python3
+"""
+logclean [{-n|--dry-run}] [{-f|--force}] [limits] path...
+
+Removes old files from the specified paths according to the criteria of the limits.
+The meaning of the parameter is:
+  -n, --dry-run                    no file will be deleted, the tool will only list what it would do
+  -f, --force                      ignores if any of the specified paths does not exist
+                                   (applicable to logclean -f /tmp/a.* when it does not throw an error, even if file matching the mask in /tmp is not)
+Limits are defined by parameters (separated by space integer value after each parameter):
+  -p, --min-free-space-on-device   defines how many percent of the block device on which the scanned files are to remain free
+                                   (default: %(min-free-space-on-device)d)
+  -c, --min-files-per-group        the number of the most recent files in each group that will never be deleted
+                                   (default: %(min-files-per-group)d)
+  -m, --min-file-age               the number of days the file will not be deleted even if there is not enough free space left on the device
+                                   (default: %(min-file-age)d)
+  -t, --max-file-age               the number of days after which the file will be deleted, even if there is enough space left on the device
+                                   (default: %(max-file-age)d)
+
+For example, if you want to delete all files from the old-logs directory, older than 10 days:
+  logclean -t 10 old-logs
+
+if we want to keep at least 3 files of each type:
+  logclean -t 10 -c 3 old-logs
+
+if we want to keep at least 10 %% of free space on the log disc, but we also need history for at least 3 days:
+  logclean -p 10 -m 3 old-logs
+
+"""
+
+import os.path
+import os
+import sys
+import math
+import re
+import time
+
+class File:
+    """Log file statistics"""
+    def __init__(self, name, group_id, blocks, age):
+        self.name = name
+        self.group_id = group_id
+        self.blocks = blocks
+        self.age = age
+
+class Device:
+    """Collection of log files on some device"""
+    def __init__(self, block_size, to_free):
+        self.block_size = block_size
+        self.to_free = to_free
+        self.files = []
+        self.group_counters = {}
+
+    def add_file(self, filename):
+        self.files.append(filename)
+
+    def inc_group_counter(self, group_id):
+        if group_id in self.group_counters:
+            self.group_counters[group_id] += 1
+        else:
+            self.group_counters[group_id] = 1
+
+    def get_files_to_remove(self, min_files_per_group, min_file_age, max_file_age):
+        to_remove = []
+        to_free = self.to_free
+        sorted_files = sorted(self.files, key=lambda x: -x.age)
+        for f in list(sorted_files):
+            if f.age > min_file_age and f.age > max_file_age and self.group_counters[f.group_id] > min_files_per_group:
+                to_remove.append(f)
+                to_free -= f.blocks
+                sorted_files.remove(f)
+                print("Overaged file: %s" % f.name)
+        for f in sorted_files:
+            if to_free > 0 and f.age > min_file_age and self.group_counters[f.group_id] > min_files_per_group:
+                to_remove.append(f)
+                to_free -= f.blocks
+                print("Freeing up space: %s" % f.name)
+        if to_free > 0:
+            sys.stderr.write("\nUnable to free enough space on device %s (%.2f MB excess)!\n" % (os.path.dirname(self.files[0].name), float(to_free) * self.block_size / 1024 / 1024))
+        return to_remove
+
+def parse_args(argv, defaults):
+    config = dict(defaults)
+    config['path-stack'] = set()
+    if len(argv) == 0:
+        raise ValueError('You must enter at least one path to the monitored files!')
+    i = 0
+    while i < len(argv):
+        curr_arg = argv[i]
+        if curr_arg in ('-h', '--help'):
+            print(__doc__ % defaults)
+            sys.exit(0)
+        if curr_arg in ('-n', '--dry-run'):
+            config['dry-run'] = True
+        elif curr_arg in ('-f', '--force'):
+            config['force'] = True
+        elif curr_arg in ('-p', '--min-free-space-on-device'):
+            config['min-free-space-on-device'] = int(argv[i+1])
+            i += 1
+        elif curr_arg in ('-c', '--min-files-per-group'):
+            config['min-files-per-group'] = int(argv[i+1])
+            i += 1
+        elif curr_arg in ('-m', '--min-file-age'):
+            config['min-file-age'] = int(argv[i+1])
+            i += 1
+        elif curr_arg in ('-t', '--max-file-age'):
+            config['max-file-age'] = int(argv[i+1])
+            i += 1
+        elif os.access(curr_arg, os.R_OK):
+            config['path-stack'].add(curr_arg)
+        else:
+            if not config['force']:
+                raise ValueError('The path "%s" does not exist!' % curr_arg)
+        i += 1
+    return config
+
+def collect_files(path_stack, r_group, min_free_space_on_device, now):
+    def add_file(path, filename):
+        fullname = os.path.join(path, filename)
+        m_group = r_group.match(filename)
+        group = os.path.join(path, m_group.group('group') if m_group else filename)
+        if group not in groups:
+            groups.append(group)
+        group_id = groups.index(group)
+        stats = os.stat(fullname)
+        device = stats.st_dev
+        if device not in devices:
+            devices[device] = get_device_info(fullname, min_free_space_on_device)
+        devices[device].inc_group_counter(group_id)
+        devices[device].add_file(File(fullname, group_id, math.ceil(float(stats.st_size)/devices[device].block_size), (now-stats.st_mtime)/60/60/24))
+    groups = []
+    devices = {}
+    for path in path_stack:
+        if os.path.isfile(path):
+            add_file(os.path.dirname(path), os.path.basename(path))
+        else:
+            for filename in os.listdir(path):
+                add_file(path, filename)
+    return devices
+
+def get_device_info(file_on_device, min_free_space_on_device):
+    """Create Device with empty file list"""
+    stat = os.statvfs(file_on_device)
+    need_free = min_free_space_on_device * stat.f_blocks / 100
+    to_free = need_free - stat.f_bavail
+    return Device(stat.f_frsize, to_free)
+
+def main():
+    defaults = {'force': False, 'dry-run': False, 'min-files-per-group': 0, 'min-free-space-on-device': 0, 'max-file-age': 99999, 'min-file-age': 0}
+    try:
+        config = parse_args(sys.argv[1:], defaults)
+    except ValueError as excep:
+        sys.stderr.write(excep.args[0]+'\n')
+        print(__doc__ % defaults)
+        sys.exit(1)
+
+    devices = collect_files(config['path-stack'], re.compile('(?P<group>[^0-9]+)[0-9][^/]*'), config['min-free-space-on-device'], time.time())
+
+    to_remove = []
+    for device in devices:
+        to_remove.extend(devices[device].get_files_to_remove(config['min-files-per-group'], config['min-file-age'], config['max-file-age']))
+
+    if not config['dry-run']:
+        if to_remove:
+            print()
+            for f in to_remove:
+                try:
+                    os.remove(f.name)
+                except OSError:
+                    sys.stderr.write("Can't delete file '%s'!\n" % f.name)
+            print("done.")
+        else:
+            print("No file matches delete criteria.")
+
+if __name__ == "__main__":
+    main()

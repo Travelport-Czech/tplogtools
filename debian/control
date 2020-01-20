@@ -1,0 +1,15 @@
+Package: tplogtools
+Version: {version}
+Section: utils
+Priority: optional
+Architecture: all
+Installed-Size: {size}
+Depends: python3
+Maintainer: Tomas Srb <tomas.srb@travelportgds.cz>
+Homepage: https://github.com/Travelport-Czech/tplogtools
+Description: logclean, stdout2log
+ - logclean
+ Removes old files from the specified paths
+ according to the criteria of the limits.
+ - stdout2log
+ Tool for store stdin to rotated file.
