@@ -1,6 +1,6 @@
 {
   "name": "travelport-czech/tplogtools",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Removes old files from the specified paths according to the criteria of the limits.",
-  "bin": ["logclean", "stdout2log"]
+  "bin": ["logclean", "stdout2log", "logtime"]
 }
