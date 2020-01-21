@@ -1,5 +1,9 @@
 # tplogtools
 
+- [logclean](#logclean) - Removes old files from the specified paths according to the criteria of the limits.
+- [stdout2log](#stdout2log) - Tool for store stdin to rotated file.
+- [logtime](#logtime) - Inserts the current time before each input line
+
 ## logclean
 
 ```
@@ -53,4 +57,30 @@ optional arguments:
                         Mask for rotated log filename
   -c COMPRESS, --compress COMPRESS
                         Command for compression of rotated log
+```
+
+## logtime
+```
+usage: logtime [-h]
+
+Inserts the current time before each input line
+
+optional arguments:
+  -h, --help  show this help message and exit
+```
+
+Example:
+```
+$ tar czvf sample.tgz /usr/share | ./logtime 
+2020-01-21T12:13:17.075558+01:00 /usr/share/
+2020-01-21T12:13:17.190862+01:00 /usr/share/aclocal/
+2020-01-21T12:13:17.190948+01:00 /usr/share/aclocal/libtool.m4
+2020-01-21T12:13:18.101484+01:00 /usr/share/aclocal/inttypes_h.m4
+2020-01-21T12:13:18.193696+01:00 /usr/share/aclocal/wchar_t.m4
+2020-01-21T12:13:18.337082+01:00 /usr/share/aclocal/lib-prefix.m4
+2020-01-21T12:13:18.654403+01:00 /usr/share/aclocal/ltdl.m4
+2020-01-21T12:13:18.756979+01:00 /usr/share/aclocal/lib-link.m4
+2020-01-21T12:13:18.825651+01:00 /usr/share/aclocal/glib-gettext.m4
+2020-01-21T12:13:18.864213+01:00 /usr/share/aclocal/progtest.m4
+...
 ```
