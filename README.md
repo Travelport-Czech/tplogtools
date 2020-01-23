@@ -3,6 +3,7 @@
 - [logclean](#logclean) - Removes old files from the specified paths according to the criteria of the limits.
 - [stdout2log](#stdout2log) - Tool for store stdin to rotated file.
 - [logtime](#logtime) - Inserts the current time before each input line
+- [logrot](#logrot) - Move big or overtimed logs to backup
 
 ## logclean
 
@@ -83,4 +84,46 @@ $ tar czvf sample.tgz /usr/share | ./logtime
 2020-01-21T12:13:18.825651+01:00 /usr/share/aclocal/glib-gettext.m4
 2020-01-21T12:13:18.864213+01:00 /usr/share/aclocal/progtest.m4
 ...
+```
+
+## logrot
+```
+
+usage: logrot [-h] -c CONF [--hourly | --daily] path [path ...]
+
+Move big or overtimed logs to backup
+
+positional arguments:
+  path                  Path to folder with log
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -c CONF, --conf CONF  Path to config yml file
+  --hourly              Use rules configured as "hourly"
+  --daily               Use rules configured as "daily"
+```
+
+Config sample:
+```
+defaults:
+  ignore: False
+  min_size: 1M
+  max_size: 4G
+  interval: daily
+  exec_pre: ''
+  exec_post: ''
+  target: '{{path}}/oldlogs/{{name}}-%Y%m%d-%H:%M.{{ext}}'
+  compress: 'bzip2'
+specific:
+  - mask:
+    - httpd-*.log
+    - nginx_*.log
+    - php_*.log
+    - console.log
+    ignore: True
+  - mask:
+    - logfile.log
+    exec_post: 'sendHupToFileUsers ao3Restart'
+    interval: hourly
+    min_size: 500M
 ```

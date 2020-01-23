@@ -2,23 +2,23 @@
 """ Inserts the current time before each input line """
 
 import sys
-import datetime
 import argparse
+from tplogtools.timetools import local_tz_now
 
-def get_now():
-    """Return current time with local timezone"""
-    return datetime.datetime.now(datetime.timezone.utc).astimezone()
-
-if __name__ == '__main__':
+def main():
+    """Main function of logtime"""
     parser = argparse.ArgumentParser(description=__doc__)
-    args = parser.parse_args()
+    parser.parse_args()
     try:
         while True:
             line = sys.stdin.buffer.readline()
             if line == b'':
                 break
-            now = get_now()
+            now = local_tz_now()
             sys.stdout.buffer.write(now.isoformat().encode('utf8')+b' '+line)
             sys.stdout.buffer.flush()
     except KeyboardInterrupt:
         pass
+
+if __name__ == '__main__':
+    main()

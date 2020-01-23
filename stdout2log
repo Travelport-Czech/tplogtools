@@ -10,7 +10,7 @@ import logging
 import subprocess
 import shlex
 import argparse
-from tplogtools.timediff import how_many_seconds_to_time
+from tplogtools.timetools import how_many_seconds_to_time
 
 class State:
     def __init__(self, wanted_hour, wanted_minute, max_size, backup_mask, filename, output, compressor):

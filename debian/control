@@ -4,12 +4,16 @@ Section: utils
 Priority: optional
 Architecture: all
 Installed-Size: {size}
-Depends: python3
+Depends: python3, python3-yaml
 Maintainer: Tomas Srb <tomas.srb@travelportgds.cz>
 Homepage: https://github.com/Travelport-Czech/tplogtools
-Description: logclean, stdout2log
+Description: Tools for manage log files
  - logclean
  Removes old files from the specified paths
  according to the criteria of the limits.
  - stdout2log
  Tool for store stdin to rotated file.
+ - logtime
+ Inserts the current time before each input line
+ - logrot
+ Move big or overtimed logs to backup
