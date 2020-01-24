@@ -1,6 +1,6 @@
 {
   "name": "travelport-czech/tplogtools",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Tools for manage log files.",
   "bin": ["logclean", "stdout2log", "logtime", "logrot"]
 }
