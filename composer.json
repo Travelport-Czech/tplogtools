@@ -1,6 +1,7 @@
 {
   "name": "travelport-czech/tplogtools",
   "version": "1.0.2",
+  "license": "MIT",
   "description": "Tools for manage log files.",
   "bin": ["logclean", "stdout2log", "logtime", "logrot"]
 }
