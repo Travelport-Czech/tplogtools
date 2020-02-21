@@ -1,16 +1,32 @@
 {
-  "name": "tplogtools",
+  "name": "@travelport-czech/tplogtools",
   "version": "1.0.2",
   "description": "Tools for manage log files.",
   "bin": {
-    "logclean": "./logclean",
-    "stdout2log": "./stdout2log",
-    "logtime": "./logtime",
-    "logrot": "./logrot"
+    "logclean": "logclean",
+    "stdout2log": "stdout2log",
+    "logtime": "logtime",
+    "logrot": "logrot"
   },
   "scripts": {
-    "test" : "python3 -m unittest",
+    "test": "python3 -m unittest",
     "coverage": "coverage run -m unittest; coverage html -d ~/www/htmlcov"
+  },
+  "main": "index.js",
+  "directories": {
+    "test": "test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Travelport-Czech/tplogtools.git"
+  },
+  "author": "Tomáš Srb <tomas.srb@travelportgds.cz> (https://www.cee-systems.com/)",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/Travelport-Czech/tplogtools/issues"
+  },
+  "homepage": "https://github.com/Travelport-Czech/tplogtools#readme",
+  "publishConfig": {
+    "access": "public"
   }
 }
-  
